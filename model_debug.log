@@ -1,0 +1,12 @@
+=== Model Debug Log ===
+<<<<<<< HEAD
+Started: 2026-02-20 23:56:04
+[23:56:04] Model initialized, waiting for changes...
+=======
+Started: 2026-02-21 00:16:19
+[00:16:19] Model initialized, waiting for changes...
+[00:16:38] MODEL: Received change from channel: /Users/carlos/Desktop/Git/vibewatch/internal/model/styles.go
+[00:16:38] MODEL: Successfully got diff for /Users/carlos/Desktop/Git/vibewatch/internal/model/styles.go
+[00:17:00] MODEL: Received change from channel: /Users/carlos/Desktop/Git/vibewatch/internal/model/help.go
+[00:17:00] MODEL: Successfully got diff for /Users/carlos/Desktop/Git/vibewatch/internal/model/help.go
+>>>>>>> d68cd9d (simplified filtering logic and fixed all issues)
