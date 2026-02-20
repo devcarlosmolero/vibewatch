@@ -174,9 +174,9 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 	}
 
 	// Special handling for git operations (commit, etc.)
-	// When .git/HEAD changes, we need to refresh all files
-	if strings.Contains(path, ".git") && filepath.Base(path) == "HEAD" {
-		logMessage("Detected git operation (HEAD changed), triggering full refresh")
+	// When .git/HEAD or .git/index changes, we need to refresh all files
+	if strings.Contains(path, ".git") && (filepath.Base(path) == "HEAD" || filepath.Base(path) == "index") {
+		logMessage(fmt.Sprintf("Detected git operation (%s changed), triggering full refresh", filepath.Base(path)))
 		// Send a special marker to indicate a git operation
 		w.pendingMu.Lock()
 		w.pending["__GIT_OPERATION__"] = struct{}{}

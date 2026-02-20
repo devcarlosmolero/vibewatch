@@ -56,8 +56,8 @@ func NewFilter(root string, repoRoots []string) *Filter {
 func (f *Filter) ShouldIgnore(path string) bool {
 	base := filepath.Base(path)
 
-	// Special case: allow .git/HEAD to detect git operations like commits
-	if base == "HEAD" && strings.Contains(path, ".git") {
+	// Special case: allow .git/HEAD and .git/index to detect git operations
+	if (base == "HEAD" || base == "index") && strings.Contains(path, ".git") {
 		return false
 	}
 
