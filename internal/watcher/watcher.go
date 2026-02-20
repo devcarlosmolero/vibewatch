@@ -35,6 +35,28 @@ func logMessage(message string) {
 	}
 }
 
+// initWatcherDebugLogging initializes the debug log file for the watcher
+func initWatcherDebugLogging(root string) {
+	debugMutex.Lock()
+	defer debugMutex.Unlock()
+
+	if debugFile != nil {
+		debugFile.Close()
+	}
+
+	debugPath := fmt.Sprintf("%s/vibewatch_debug.log", root)
+	var err error
+	debugFile, err = os.Create(debugPath)
+	if err != nil {
+		debugFile = nil
+		return
+	}
+
+	debugFile.WriteString("=== Watcher Debug Log ===\n")
+	debugFile.WriteString(fmt.Sprintf("Started: %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	debugFile.Sync()
+}
+
 // Watcher monitors a directory recursively for file changes.
 type Watcher struct {
 	root       string
@@ -62,6 +84,9 @@ func New(root string, filter *Filter) (*Watcher, error) {
 		pending: make(map[string]struct{}),
 		done:    make(chan struct{}),
 	}
+
+	// Initialize watcher debug logging
+	initWatcherDebugLogging(root)
 
 	// Walk and add all directories
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
