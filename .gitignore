@@ -1,3 +1,5 @@
 diffwatch
 *.exe
 .DS_Store
+*.log
+*.log
