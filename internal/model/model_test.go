@@ -2,6 +2,7 @@ package model
 
 import (
 	"codeberg.org/devcarlosmolero/vibewatch/internal/types"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -25,21 +26,49 @@ func TestFileNavigation(t *testing.T) {
 	}
 
 	// First navigation down should select first file (index 0)
-	m, _ = m.navigateFiles(1)
+	result, _ := m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFileIndex != 0 {
 		t.Errorf("Expected selected index 0, got %d", m.selectedFileIndex)
 	}
 
 	// Test navigation down to second file
-	m, _ = m.navigateFiles(1)
+	result, _ = m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFileIndex != 1 {
 		t.Errorf("Expected selected index 1, got %d", m.selectedFileIndex)
 	}
 
-	// Test wrapping around - moving down from last should go to first
-	m, _ = m.navigateFiles(1)
+	// Test wrapping around - moving down from last should go to first file
+	result, _ = m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFileIndex != 0 {
 		t.Errorf("Expected selected index 0 (wrapped), got %d", m.selectedFileIndex)
+	}
+
+	// Test navigation down to second file
+	result, _ = m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
+	if m.selectedFileIndex != 1 {
+		t.Errorf("Expected selected index 1, got %d", m.selectedFileIndex)
+	}
+
+	// Test wrapping around - moving down from last should go to first file
+	result, _ = m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
+	// After moving down from index 1 with 2 files, should wrap to index 0
+	if m.selectedFileIndex != 0 {
+		t.Errorf("Expected selected index 0 (wrapped from end), got %d", m.selectedFileIndex)
 	}
 }
 
@@ -91,9 +120,15 @@ func TestToggleUntoggleWithNavigation(t *testing.T) {
 	}
 
 	// First navigation selects first file
-	m, _ = m.navigateFiles(1)
+	result, _ := m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	// Navigate to second file (index 1)
-	m, _ = m.navigateFiles(1)
+	result, _ = m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFilePath != "file2.go" {
 		t.Errorf("Expected selected file to be file2.go, got %s", m.selectedFilePath)
 	}
@@ -136,7 +171,10 @@ func TestNavigationWrapping(t *testing.T) {
 	}
 
 	// First navigation down should select first file
-	m, _ = m.navigateFiles(1)
+	result, _ := m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFileIndex != 0 {
 		t.Errorf("Expected selected index 0, got %d", m.selectedFileIndex)
 	}
@@ -145,7 +183,10 @@ func TestNavigationWrapping(t *testing.T) {
 	}
 
 	// Move down to second file
-	m, _ = m.navigateFiles(1)
+	result, _ = m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFileIndex != 1 {
 		t.Errorf("Expected selected index 1, got %d", m.selectedFileIndex)
 	}
@@ -154,7 +195,10 @@ func TestNavigationWrapping(t *testing.T) {
 	}
 
 	// Move down past end - should wrap to first file
-	m, _ = m.navigateFiles(1)
+	result, _ = m.navigateFiles(1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFileIndex != 0 {
 		t.Errorf("Expected selected index 0 (wrapped), got %d", m.selectedFileIndex)
 	}
@@ -163,7 +207,10 @@ func TestNavigationWrapping(t *testing.T) {
 	}
 
 	// Move up before beginning - should wrap to last file
-	m, _ = m.navigateFiles(-1)
+	result, _ = m.navigateFiles(-1)
+	if result != nil {
+		m = *result
+	}
 	if m.selectedFileIndex != 1 {
 		t.Errorf("Expected selected index 1 (wrapped), got %d", m.selectedFileIndex)
 	}
@@ -199,14 +246,20 @@ func TestGitOperationDetection(t *testing.T) {
 		IsNew:     false,
 	}
 
-	// This should trigger a refresh and clear entries
+	// This should trigger a refresh command
 	msg := FileChangedMsg(gitOpEntry)
-	m.Update(msg)
+	_, result := m.Update(msg)
 
-	// After git operation, entries should be cleared (simulating reload)
-	// In real scenario, loadInitialEntries would be called to refresh from git
-	if len(m.entries) != 0 {
-		t.Errorf("Expected entries to be cleared after git operation, got %d entries", len(m.entries))
+	// The result should be a command (could be tea.BatchCmd or single cmd)
+	// We can't easily inspect the exact command type, but we can verify it's not nil
+	if result == nil {
+		t.Errorf("Expected non-nil command after git operation")
+	}
+
+	// The model should schedule a refresh but not immediately clear entries
+	// (that happens when loadInitialEntries command executes)
+	if len(m.entries) != 2 {
+		t.Errorf("Expected entries to remain until refresh completes, got %d entries", len(m.entries))
 	}
 }
 
