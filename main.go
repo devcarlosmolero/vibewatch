@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-package main // testing batch processing with debug
-=======
-package main // second test after revert // another test comment
->>>>>>> d68cd9d (simplified filtering logic and fixed all issues)
+package main
+
 
 import (
 	"context"
