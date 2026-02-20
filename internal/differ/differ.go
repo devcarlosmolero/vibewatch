@@ -70,6 +70,18 @@ func NewGit(root string) (*GitDiffer, error) {
 // Test comment in differ.go after path component fix
 // Second test comment to verify filtering fix
 func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
+	// Special handling for git operations
+	if filePath == "__GIT_OPERATION__" {
+		return types.DiffEntry{
+			FilePath:  filePath,
+			Timestamp: time.Now(),
+			Repo:      filepath.Base(g.root),
+			Diff:      "",
+			Error:     "",
+			IsNew:     false,
+		}, nil
+	}
+
 	entry := types.DiffEntry{
 		FilePath:  filePath,
 		Timestamp: time.Now(),

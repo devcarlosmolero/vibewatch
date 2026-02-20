@@ -227,6 +227,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		entry := types.DiffEntry(msg)
 		m.addDebugMessage(fmt.Sprintf("Received change for: %s", entry.FilePath))
 
+		// Special handling for git operations (commit, etc.)
+		if entry.FilePath == "__GIT_OPERATION__" {
+			m.addDebugMessage("Git operation detected, refreshing all entries")
+			logMessage("Model: Git operation detected, refreshing all entries")
+			cmds = append(cmds, loadInitialEntries(m.differ))
+			cmds = append(cmds, waitForChange(m.changes, m.differ))
+			return m, tea.Batch(cmds...)
+		}
+
 		if entry.Diff == "" && entry.Error == "" && !entry.IsNew {
 			m.addDebugMessage(fmt.Sprintf("File reverted/committed: %s", entry.FilePath))
 			logMessage(fmt.Sprintf("Model: Removing committed file: %s", entry.FilePath))

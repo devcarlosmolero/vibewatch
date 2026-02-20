@@ -56,6 +56,11 @@ func NewFilter(root string, repoRoots []string) *Filter {
 func (f *Filter) ShouldIgnore(path string) bool {
 	base := filepath.Base(path)
 
+	// Special case: allow .git/HEAD to detect git operations like commits
+	if base == "HEAD" && strings.Contains(path, ".git") {
+		return false
+	}
+
 	// Check if this is a Go binary or build artifact
 	if strings.HasSuffix(path, ".exe") || strings.HasSuffix(path, ".so") ||
 		strings.HasSuffix(path, ".dylib") || strings.HasSuffix(path, ".a") ||

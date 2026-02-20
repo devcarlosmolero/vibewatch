@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -123,6 +124,9 @@ func (w *Watcher) scheduleBatch() {
 				select {
 				case w.changes <- path:
 					// Path sent successfully
+					if path == "__GIT_OPERATION__" {
+						logMessage("Sent git operation marker to channel")
+					}
 				case <-w.done:
 					return
 				}
@@ -167,6 +171,18 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 			w.fsw.Add(path)
 			return
 		}
+	}
+
+	// Special handling for git operations (commit, etc.)
+	// When .git/HEAD changes, we need to refresh all files
+	if strings.Contains(path, ".git") && filepath.Base(path) == "HEAD" {
+		logMessage("Detected git operation (HEAD changed), triggering full refresh")
+		// Send a special marker to indicate a git operation
+		w.pendingMu.Lock()
+		w.pending["__GIT_OPERATION__"] = struct{}{}
+		w.pendingMu.Unlock()
+		w.scheduleBatch()
+		return
 	}
 
 	// Only care about write, create, remove, and rename events for files

@@ -120,13 +120,9 @@ var (
 				Padding(0, 1).
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderForeground(lipgloss.Color("#BD93F9"))
-<<<<<<< HEAD
-	// Test change in styles.go
-=======
 
-// Test change in styles.go with restored filtering
-// Fourth test with simplified filtering
->>>>>>> d68cd9d (simplified filtering logic and fixed all issues)
+	// Test change in styles.go with restored filtering
+	// Fourth test with simplified filtering
 )
 
 // logMessage writes a debug message to the model debug file
