@@ -179,15 +179,5 @@ if [ -n "$DOWNLOAD_URL" ]; then
 fi
 
 echo ""
-echo "Next steps (if not already automated):"
-if [ -z "$CODEBERG_API_TOKEN" ]; then
-  echo "Error: CODEBERG_API_TOKEN environment variable not set."
-  echo "Please set the environment variable and try again."
-  exit 1
-fi
-if [ "$UPDATE_HOMEBREW" = false ]; then
-  echo "2. Update Homebrew formula with:"
-  echo "   URL: https://codeberg.org/devcarlosmolero/vibewatch/releases/download/$VERSION/vibewatch-$VERSION.tar.gz"
-  echo "   SHA-256: $SHA256"
-fi
+echo "Release process complete!"
 
