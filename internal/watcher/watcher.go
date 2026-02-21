@@ -85,20 +85,18 @@ func New(root string, filter *Filter) (*Watcher, error) {
 		done:    make(chan struct{}),
 	}
 
-	// Initialize watcher debug logging
 	initWatcherDebugLogging(root)
 
-	// Walk and add all directories
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil // skip inaccessible paths
+			return nil
 		}
 		if d.IsDir() {
 			if filter.ShouldIgnore(path) {
 				return filepath.SkipDir
 			}
 			if addErr := fsw.Add(path); addErr != nil {
-				return nil // skip directories that can't be watched (broken symlinks, etc.)
+				return nil
 			}
 		}
 		return nil
@@ -135,7 +133,6 @@ func (w *Watcher) scheduleBatch() {
 				return
 			}
 
-			// Create a slice of pending paths
 			paths := make([]string, 0, len(w.pending))
 			for path := range w.pending {
 				paths = append(paths, path)
@@ -143,12 +140,10 @@ func (w *Watcher) scheduleBatch() {
 			w.pending = make(map[string]struct{})
 			w.pendingMu.Unlock()
 
-			// Send all paths in the batch
 			logMessage(fmt.Sprintf("Processing batch of %d changes", len(paths)))
 			for _, path := range paths {
 				select {
 				case w.changes <- path:
-					// Path sent successfully
 					if path == "__GIT_OPERATION__" {
 						logMessage("Sent git operation marker to channel")
 					}
@@ -158,7 +153,6 @@ func (w *Watcher) scheduleBatch() {
 			}
 		})
 	} else {
-		// Reset the timer to extend the batch interval
 		w.batchTimer.Reset(batchInterval)
 	}
 }
@@ -177,7 +171,6 @@ func (w *Watcher) loop() {
 			if !ok {
 				return
 			}
-			// silently ignore watcher errors
 		}
 	}
 }
@@ -189,7 +182,6 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	// If a new directory was created, start watching it
 	if event.Has(fsnotify.Create) {
 		info, err := os.Stat(path)
 		if err == nil && info.IsDir() {
@@ -198,11 +190,8 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 		}
 	}
 
-	// Special handling for git operations (commit, etc.)
-	// When .git/HEAD or .git/index changes, we need to refresh all files
 	if strings.Contains(path, ".git") && (filepath.Base(path) == "HEAD" || filepath.Base(path) == "index") {
 		logMessage(fmt.Sprintf("Detected git operation (%s changed), triggering full refresh", filepath.Base(path)))
-		// Send a special marker to indicate a git operation
 		w.pendingMu.Lock()
 		w.pending["__GIT_OPERATION__"] = struct{}{}
 		w.pendingMu.Unlock()
@@ -210,7 +199,6 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	// Only care about write, create, remove, and rename events for files
 	if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Create) &&
 		!event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
 		return
@@ -220,6 +208,5 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 	w.pending[path] = struct{}{}
 	w.pendingMu.Unlock()
 
-	// Schedule a batch if not already scheduled
 	w.scheduleBatch()
 }

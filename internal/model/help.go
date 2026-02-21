@@ -1,7 +1,5 @@
 // help.go provides the help text and styling for vibewatch's interactive help system.
 // This includes keybindings documentation and visual styling for the help overlay.
-// Testing file change detection after disabling git ignore filter.
-// Another test in help.go with simplified filtering.
 package model
 
 import "github.com/charmbracelet/lipgloss"

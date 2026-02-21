@@ -43,7 +43,7 @@ var ignoredExtensions = []string{
 // Filter decides which paths should be ignored by the watcher.
 type Filter struct {
 	root      string
-	repoRoots []string // git repo roots for git check-ignore
+	repoRoots []string
 }
 
 // NewFilter creates a filter that respects each repo's .gitignore and built-in exclusions.

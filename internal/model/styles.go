@@ -6,7 +6,6 @@
 // - Various text styles (added, removed, context, errors, etc.)
 //
 // The color palette uses a purple/blue theme with hex codes that match
-// Test change to trigger watcher detection - attempt 2
 // the vibewatch aesthetic and provide good contrast and readability.
 package model
 
@@ -120,9 +119,6 @@ var (
 				Padding(0, 1).
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderForeground(lipgloss.Color("#BD93F9"))
-
-	// Test change in styles.go with restored filtering
-	// Fourth test with simplified filtering
 )
 
 // logMessage writes a debug message to the model debug file

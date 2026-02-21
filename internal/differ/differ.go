@@ -67,10 +67,7 @@ func NewGit(root string) (*GitDiffer, error) {
 }
 
 // Diff computes the diff for a single file.
-// Test comment in differ.go after path component fix
-// Second test comment to verify filtering fix
 func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
-	// Special handling for git operations
 	if filePath == "__GIT_OPERATION__" {
 		return types.DiffEntry{
 			FilePath:  filePath,
@@ -85,18 +82,11 @@ func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
 	entry := types.DiffEntry{
 		FilePath:  filePath,
 		Timestamp: time.Now(),
-		Repo:      filepath.Base(g.root), // Set repo name for single-repo mode
+		Repo:      filepath.Base(g.root),
 	}
-	// Test comment to see if changes are detected with filtering disabled
-	// Another test change to check model processing
-	// Third test change to verify original watcher behavior
-	// Fourth test after fixing batch timer reset logic
-	// Fifth test change in differ.go
 
-	// Check cache first
 	g.cacheMutex.Lock()
 	if cached, exists := g.diffCache[filePath]; exists {
-		// Check if cache is still valid (e.g., file hasn't been modified since caching)
 		if time.Since(cached.timestamp) < 1*time.Second {
 			entry.Diff = cached.diff
 			entry.Error = cached.error
@@ -112,7 +102,6 @@ func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
 		rel = filePath
 	}
 
-	// Try working tree diff first (unstaged changes)
 	diff, err := g.gitDiff(rel)
 	if err != nil {
 		entry.Error = err.Error()
@@ -120,7 +109,6 @@ func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
 		return entry, nil
 	}
 
-	// If no working tree diff, try staged diff
 	if diff == "" {
 		diff, err = g.gitDiffStaged(rel)
 		if err != nil {
@@ -130,7 +118,6 @@ func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
 		}
 	}
 
-	// If still no diff, the file might be untracked or committed
 	if diff == "" {
 		tracked, _ := g.isTracked(rel)
 		if !tracked {
@@ -142,8 +129,6 @@ func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
 			}
 			entry.IsNew = true
 		} else {
-			// File is tracked but has no diff - it's been committed/clean
-			// Return empty diff to signal the model to remove this entry
 			logMessage(fmt.Sprintf("Differ: File committed/clean, clearing diff: %s", filePath))
 			entry.Diff = ""
 			entry.Error = ""
@@ -160,13 +145,11 @@ func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) {
 
 // DirtyFiles returns DiffEntries for all files with uncommitted changes in this repo.
 func (g *GitDiffer) DirtyFiles() ([]types.DiffEntry, error) {
-	// Get modified/staged files only (no untracked)
 	cmd := exec.Command("git", "-C", g.root, "diff", "--name-only", "HEAD")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &bytes.Buffer{}
 	if err := cmd.Run(); err != nil {
-		// HEAD might not exist yet (empty repo), try without HEAD
 		cmd = exec.Command("git", "-C", g.root, "diff", "--name-only")
 		out.Reset()
 		cmd.Stdout = &out
@@ -174,21 +157,18 @@ func (g *GitDiffer) DirtyFiles() ([]types.DiffEntry, error) {
 		cmd.Run()
 	}
 
-	// Also get unstaged changes
 	cmd2 := exec.Command("git", "-C", g.root, "diff", "--name-only")
 	var out2 bytes.Buffer
 	cmd2.Stdout = &out2
 	cmd2.Stderr = &bytes.Buffer{}
 	cmd2.Run()
 
-	// Get untracked files (new files not yet added to git)
 	cmd3 := exec.Command("git", "-C", g.root, "ls-files", "--others", "--exclude-standard")
 	var out3 bytes.Buffer
 	cmd3.Stdout = &out3
 	cmd3.Stderr = &bytes.Buffer{}
 	cmd3.Run()
 
-	// Merge all three lists, deduplicate
 	seen := make(map[string]bool)
 	var relPaths []string
 	for _, o := range []string{out.String(), out2.String(), out3.String()} {
@@ -264,7 +244,6 @@ func (g *GitDiffer) gitDiffUntracked(absPath string) (string, error) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &bytes.Buffer{}
-	// git diff --no-index returns exit code 1 when there are differences, which is expected
 	cmd.Run()
 	return strings.TrimSpace(out.String()), nil
 }

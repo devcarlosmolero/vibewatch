@@ -202,8 +202,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FileChangedMsg:
 		entry := types.DiffEntry(msg)
 
-		// Special handling for git operations (commit, etc.)
-		// When .git/HEAD or .git/index changes, we need to refresh all files
 		if entry.FilePath == "__GIT_OPERATION__" {
 			logMessage("Model: Git operation detected, refreshing all files")
 			cmds = append(cmds, loadInitialEntries(m.differ))
@@ -223,29 +221,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			logMessage(fmt.Sprintf("Model: Error getting diff for %s: %s", entry.FilePath, entry.Error))
 		}
 
-		m.entries = removeEntriesForFile(m.entries, entry.FilePath)
-		m.entries = append([]types.DiffEntry{entry}, m.entries...)
-		if len(m.entries) > m.maxEntries {
-			m.entries = m.entries[:m.maxEntries]
-		}
-		m.viewport.SetContent(m.renderEntries())
-		if !m.paused {
-			m.viewport.GotoTop()
-		}
-		cmds = append(cmds, waitForChange(m.changes, m.differ))
-		return m, tea.Batch(cmds...)
-
-		if entry.Diff == "" && entry.Error == "" && !entry.IsNew {
-			logMessage(fmt.Sprintf("Model: Removing committed file: %s", entry.FilePath))
-			m.entries = removeEntriesForFile(m.entries, entry.FilePath)
-			m.viewport.SetContent(m.renderEntries())
-			cmds = append(cmds, waitForChange(m.changes, m.differ))
-			return m, tea.Batch(cmds...)
-		}
-
-		if entry.Error != "" {
-			logMessage(fmt.Sprintf("Model: Error getting diff for %s: %s", entry.FilePath, entry.Error))
-		}
 		m.entries = removeEntriesForFile(m.entries, entry.FilePath)
 		m.entries = append([]types.DiffEntry{entry}, m.entries...)
 		if len(m.entries) > m.maxEntries {
@@ -355,7 +330,6 @@ func (m *Model) View() string {
 func (m *Model) renderTabs() string {
 	var tabs []string
 	for i, tab := range m.tabs {
-		// Count entries for this tab
 		count := 0
 		if i == 0 {
 			count = len(m.entries)
@@ -383,7 +357,6 @@ func (m *Model) renderTabs() string {
 		}
 	}
 	row := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
-	// Fill the rest of the line with the tab bar background
 	gap := m.width - lipgloss.Width(row)
 	if gap > 0 {
 		row += TabBarStyle.Render(strings.Repeat(" ", gap))
@@ -430,17 +403,14 @@ func (m *Model) renderEntries() string {
 func renderEntry(e types.DiffEntry, width int, m *Model) string {
 	var b strings.Builder
 
-	// Repo tag + file path + timestamp
 	ts := TimestampStyle.Render(e.Timestamp.Format("15:04:05"))
 	fp := FilePathStyle.Render(e.FilePath)
 
-	// Add hidden indicator if file is hidden
 	hiddenIndicator := ""
 	if m != nil && !m.isFileVisible(e.FilePath) {
 		hiddenIndicator = HiddenFileStyle.Render(" [HIDDEN]")
 	}
 
-	// Add active indicator if this is the selected file
 	activeIndicator := ""
 	if m != nil && m.selectedFilePath == e.FilePath {
 		activeIndicator = ActiveFileStyle.Render(" ▲ ACTIVE ")
@@ -463,7 +433,6 @@ func renderEntry(e types.DiffEntry, width int, m *Model) string {
 		return b.String()
 	}
 
-	// Check if diff should be visible
 	if m != nil && !m.isDiffVisible(e.FilePath) {
 		b.WriteString(HiddenFileStyle.Render("  [DIFF HIDDEN - press t to show]") + "\n")
 		return b.String()
@@ -472,7 +441,6 @@ func renderEntry(e types.DiffEntry, width int, m *Model) string {
 	lines := strings.Split(e.Diff, "\n")
 	rendered := 0
 	for _, line := range lines {
-		// Skip git diff header lines — we already show the file path
 		if strings.HasPrefix(line, "diff --git") ||
 			strings.HasPrefix(line, "index ") ||
 			strings.HasPrefix(line, "--- ") ||
@@ -594,25 +562,16 @@ func (m *Model) navigateFiles(delta int) (*Model, tea.Cmd) {
 func (m *Model) ensureSelectedFileVisible() {
 	m.viewport.SetContent(m.renderEntries())
 
-	// For simple navigation, just ensure the selected file is somewhere in the viewport
-	// The exact positioning will be handled by the viewport's natural scrolling
-	// This is much more efficient than trying to calculate exact line positions
-
-	// If we're near the beginning, go to top
 	if m.selectedFileIndex < 5 {
 		m.viewport.GotoTop()
 		return
 	}
 
-	// If we're near the end, go to bottom
 	filtered := m.filteredEntries()
 	if m.selectedFileIndex >= len(filtered)-5 {
 		m.viewport.GotoBottom()
 		return
 	}
-
-	// For middle positions, the viewport will naturally show the right area
-	// as the user navigates, so we don't need to do precise scrolling
 }
 
 func loadInitialEntries(d differ.Differ) tea.Cmd {
@@ -632,7 +591,6 @@ func waitForChange(ch <-chan string, d differ.Differ) tea.Cmd {
 			return nil
 		}
 
-		// Debug: Log that we received a change from the channel
 		logMessage(fmt.Sprintf("MODEL: Received change from channel: %s", path))
 
 		entry, err := d.Diff(path)
