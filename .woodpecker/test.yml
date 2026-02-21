@@ -1,9 +1,0 @@
-when:
-  branch: master
-  event: push
-
-steps:
-  - name: test
-    image: golang:latest
-    commands:
-      - go test ./...

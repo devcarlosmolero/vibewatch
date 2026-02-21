@@ -1,5 +1,14 @@
-diffwatch
 *.exe
 .DS_Store
 *.log
-*.log
+
+# Build artifacts
+vibewatch
+*.tar.gz
+*.zip
+
+# Build scripts output
+version.txt
+
+# Dependencies
+pkg

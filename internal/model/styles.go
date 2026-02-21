@@ -12,6 +12,7 @@ package model
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -134,7 +135,7 @@ func logMessage(message string) {
 }
 
 // initModelDebugLogging initializes the debug log file for the model
-func initModelDebugLogging(root string) {
+func initModelDebugLogging(logDir string) {
 	modelDebugMutex.Lock()
 	defer modelDebugMutex.Unlock()
 
@@ -142,7 +143,7 @@ func initModelDebugLogging(root string) {
 		modelDebugFile.Close()
 	}
 
-	debugPath := fmt.Sprintf("%s/model.log", root)
+	debugPath := filepath.Join(logDir, "model.log")
 	var err error
 	modelDebugFile, err = os.Create(debugPath)
 	if err != nil {

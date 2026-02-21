@@ -2,6 +2,9 @@ package model
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +16,31 @@ import (
 	"codeberg.org/devcarlosmolero/vibewatch/internal/differ"
 	"codeberg.org/devcarlosmolero/vibewatch/internal/types"
 )
+
+// getLogDir returns the appropriate directory for log files
+// On macOS: ~/Library/Logs/vibewatch/
+// On Linux: ~/.cache/vibewatch/
+func getLogDir() string {
+	var logDir string
+	if runtime.GOOS == "darwin" {
+		logDir = filepath.Join(os.Getenv("HOME"), "Library", "Logs", "vibewatch")
+	} else {
+		// Default to XDG cache home or fallback to ~/.cache
+		cacheHome := os.Getenv("XDG_CACHE_HOME")
+		if cacheHome == "" {
+			cacheHome = filepath.Join(os.Getenv("HOME"), ".cache")
+		}
+		logDir = filepath.Join(cacheHome, "vibewatch")
+	}
+
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		// If we can't create the directory, fall back to current directory
+		return "."
+	}
+
+	return logDir
+}
 
 const maxDiffLines = 100
 
@@ -59,7 +87,7 @@ func New(changes <-chan string, d differ.Differ, maxEntries int, dir string, rep
 }
 
 func (m *Model) Init() tea.Cmd {
-	initModelDebugLogging("/Users/carlos/Desktop/Git/vibewatch")
+	initModelDebugLogging(getLogDir())
 	logMessage("Model initialized, waiting for changes...")
 
 	return tea.Batch(

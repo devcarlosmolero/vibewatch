@@ -5,12 +5,38 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
+
+// getLogDir returns the appropriate directory for log files
+// On macOS: ~/Library/Logs/vibewatch/
+// On Linux: ~/.cache/vibewatch/
+func getLogDir() string {
+	var logDir string
+	if runtime.GOOS == "darwin" {
+		logDir = filepath.Join(os.Getenv("HOME"), "Library", "Logs", "vibewatch")
+	} else {
+		// Default to XDG cache home or fallback to ~/.cache
+		cacheHome := os.Getenv("XDG_CACHE_HOME")
+		if cacheHome == "" {
+			cacheHome = filepath.Join(os.Getenv("HOME"), ".cache")
+		}
+		logDir = filepath.Join(cacheHome, "vibewatch")
+	}
+
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		// If we can't create the directory, fall back to current directory
+		return "."
+	}
+
+	return logDir
+}
 
 const (
 	dbounceInterval = 300 * time.Millisecond
@@ -36,7 +62,7 @@ func logMessage(message string) {
 }
 
 // initWatcherDebugLogging initializes the debug log file for the watcher
-func initWatcherDebugLogging(root string) {
+func initWatcherDebugLogging(logDir string) {
 	debugMutex.Lock()
 	defer debugMutex.Unlock()
 
@@ -44,7 +70,7 @@ func initWatcherDebugLogging(root string) {
 		debugFile.Close()
 	}
 
-	debugPath := fmt.Sprintf("%s/watcher.log", root)
+	debugPath := filepath.Join(logDir, "watcher.log")
 	var err error
 	debugFile, err = os.Create(debugPath)
 	if err != nil {
@@ -85,7 +111,7 @@ func New(root string, filter *Filter) (*Watcher, error) {
 		done:    make(chan struct{}),
 	}
 
-	initWatcherDebugLogging(root)
+	initWatcherDebugLogging(getLogDir())
 
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

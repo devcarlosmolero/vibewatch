@@ -15,26 +15,24 @@ var helpStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("#BD93F9"))
 
 func renderHelp() string {
-	content := `  vibewatch - Real-time Code Change Viewer
-
-  Keybindings:
-  ───────────────────────────────
-  Tab            Next repo tab
-  Shift+Tab      Previous repo tab
-  1-9            Jump to tab by number
-  j / ↓          Scroll down
-  k / ↑          Scroll up
-  d / PgDn       Page down
-  u / PgUp       Page up
-  g / Home       Go to top
-  G / End        Go to bottom
-  p              Pause / Resume
-  c              Clear all entries
-  t              Toggle file visibility
-  U              Untoggle file visibility
-  ↑/↓/j/k        Navigate between files
-  ?              Toggle this help
-  q / Ctrl+C     Quit`
+	content := "  Keybindings:\n" +
+		"  ───────────────────────────────\n" +
+		"  Tab            Next repo tab\n" +
+		"  Shift+Tab      Previous repo tab\n" +
+		"  1-9            Jump to tab by number\n" +
+		"  j / ↓          Scroll down\n" +
+		"  k / ↑          Scroll up\n" +
+		"  d / PgDn       Page down\n" +
+		"  u / PgUp       Page up\n" +
+		"  g / Home       Go to top\n" +
+		"  G / End        Go to bottom\n" +
+		"  p              Pause / Resume\n" +
+		"  c              Clear all entries\n" +
+		"  t              Toggle file visibility\n" +
+		"  T              Toggle first visible file\n" +
+		"  U              Untoggle file visibility\n" +
+		"  ?              Toggle this help\n" +
+		"  q / Ctrl+C     Quit"
 
 	return helpStyle.Render(content)
 }

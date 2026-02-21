@@ -17,10 +17,18 @@ import (
 	"codeberg.org/devcarlosmolero/vibewatch/internal/watcher"
 )
 
+var version = "1.0.1" // Default version, can be overridden with -ldflags: -ldflags "-X main.version=$(git describe --tags)"
+
 func main() {
+	versionFlag := flag.Bool("version", false, "print version and exit")
 	dir := flag.String("dir", ".", "directory to watch (git repo or parent of multiple repos)")
 	maxEntries := flag.Int("max", 200, "maximum number of diff entries to keep")
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println("vibewatch v" + version)
+		os.Exit(0)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
