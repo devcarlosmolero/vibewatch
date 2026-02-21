@@ -192,13 +192,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case InitialEntriesMsg:
 		entries := []types.DiffEntry(msg)
-		if len(entries) > 0 {
-			m.entries = entries
-			if len(m.entries) > m.maxEntries {
-				m.entries = m.entries[:m.maxEntries]
-			}
-			m.viewport.SetContent(m.renderEntries())
+		m.entries = entries
+		if len(m.entries) > m.maxEntries {
+			m.entries = m.entries[:m.maxEntries]
 		}
+		m.viewport.SetContent(m.renderEntries())
 		return m, nil
 
 	case FileChangedMsg:
