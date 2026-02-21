@@ -77,9 +77,14 @@ echo "Pushing tag to remote..."
 git push origin "$VERSION"
 echo "Tag pushed: $VERSION"
 
-# Step 6: Create Codeberg release and upload assets (if token provided)
-if [ -n "$CODEBERG_API_TOKEN" ]; then
-  echo "Creating Codeberg release..."
+# Step 6: Create Codeberg release and upload assets
+if [ -z "$CODEBERG_API_TOKEN" ]; then
+  echo "Error: CODEBERG_API_TOKEN environment variable not set."
+  echo "Please set the environment variable and try again."
+  exit 1
+fi
+
+echo "Creating Codeberg release..."
 
   # Create release via API
   RELEASE_RESPONSE=$(curl -s -X POST \
@@ -90,33 +95,38 @@ if [ -n "$CODEBERG_API_TOKEN" ]; then
 
   # Extract release ID from response
   RELEASE_ID=$(echo "$RELEASE_RESPONSE" | grep -o '"id":[0-9]*' | cut -d: -f2)
-
+  
   if [ -z "$RELEASE_ID" ]; then
     echo "Error: Failed to create release via Codeberg API"
     echo "Response: $RELEASE_RESPONSE"
-  else
-    echo "Release created with ID: $RELEASE_ID"
-
-    # Upload tarball as release asset
-    echo "Uploading release asset..."
-    UPLOAD_RESPONSE=$(curl -s -X POST \
-      -H "Authorization: token $CODEBERG_API_TOKEN" \
-      -F "attachment=@vibewatch-$VERSION.tar.gz" \
-      -F "name=vibewatch-$VERSION.tar.gz" \
-      "https://codeberg.org/api/v1/repos/devcarlosmolero/vibewatch/releases/$RELEASE_ID/assets")
-
-    if echo "$UPLOAD_RESPONSE" | grep -q '"name":"vibewatch-'$VERSION'.tar.gz"'; then
-      echo "Asset uploaded successfully!"
-
-      # Extract download URL
-      DOWNLOAD_URL=$(echo "$UPLOAD_RESPONSE" | grep -o '"browser_download_url":"[^"]*"' | cut -d\" -f4)
-      echo "Download URL: $DOWNLOAD_URL"
-    else
-      echo "Error: Failed to upload asset"
-      echo "Response: $UPLOAD_RESPONSE"
-    fi
+    exit 1
   fi
-fi
+  
+  echo "Release created with ID: $RELEASE_ID"
+  
+  # Upload tarball as release asset
+  echo "Uploading release asset..."
+  UPLOAD_RESPONSE=$(curl -s -X POST \
+    -H "Authorization: token $CODEBERG_API_TOKEN" \
+    -F "attachment=@vibewatch-$VERSION.tar.gz" \
+    -F "name=vibewatch-$VERSION.tar.gz" \
+    "https://codeberg.org/api/v1/repos/devcarlosmolero/vibewatch/releases/$RELEASE_ID/assets")
+  
+  if echo "$UPLOAD_RESPONSE" | grep -q '"name":"vibewatch-'$VERSION'.tar.gz"'; then
+    echo "Asset uploaded successfully!"
+    
+    # Extract download URL
+    DOWNLOAD_URL=$(echo "$UPLOAD_RESPONSE" | grep -o '"browser_download_url":"[^"]*"' | cut -d\" -f4)
+    echo "Download URL: $DOWNLOAD_URL"
+    
+    # Clean up tarball after successful upload
+    echo "Cleaning up tarball..."
+    rm -f vibewatch-$VERSION.tar.gz
+  else
+    echo "Error: Failed to upload asset"
+    echo "Response: $UPLOAD_RESPONSE"
+    exit 1
+  fi
 
 # Step 7: Update Homebrew formula
 if [ -z "$HOMEBREW_REPO_PATH" ]; then
