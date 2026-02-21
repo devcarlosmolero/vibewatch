@@ -41,6 +41,6 @@ Please refer to the **[CONTEXT.md](CONTEXT.md)** file.
 
 Debug logs are created in the repository root:
 - `vibewatch_debug.log` - Watcher events
-- `model_debug.log` - Model processing
+- `model.log` - Model processing
 
 See CONTEXT.md for detailed debugging information.
