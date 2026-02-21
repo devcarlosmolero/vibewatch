@@ -40,7 +40,7 @@ Please refer to the **[CONTEXT.md](CONTEXT.md)** file.
 ### Debugging
 
 Debug logs are created in the repository root:
-- `watch.log` - Watcher events
+- `watcher.log` - Watcher events
 - `model.log` - Model processing
 
 See CONTEXT.md for detailed debugging information.

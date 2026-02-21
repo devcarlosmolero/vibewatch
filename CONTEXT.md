@@ -144,7 +144,7 @@ func (w *Watcher) scheduleBatch() {
 
 Vibewatch creates two debug log files:
 
-1. **`watch.log`** - Watcher events and processing
+1. **`watcher.log`** - Watcher events and processing
 2. **`model.log`** - Model processing and diff computation
 
 **What to look for:**

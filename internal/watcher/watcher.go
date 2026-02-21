@@ -44,7 +44,7 @@ func initWatcherDebugLogging(root string) {
 		debugFile.Close()
 	}
 
-	debugPath := fmt.Sprintf("%s/watch.log", root)
+	debugPath := fmt.Sprintf("%s/watcher.log", root)
 	var err error
 	debugFile, err = os.Create(debugPath)
 	if err != nil {
