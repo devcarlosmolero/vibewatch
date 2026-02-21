@@ -8,7 +8,6 @@ import (
 )
 
 func TestFileNavigation(t *testing.T) {
-	// Create a test model
 	m := Model{
 		entries: []types.DiffEntry{
 			{
@@ -25,7 +24,6 @@ func TestFileNavigation(t *testing.T) {
 		visibleFiles: make(map[string]bool),
 	}
 
-	// First navigation down should select first file (index 0)
 	result, _ := m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -34,7 +32,6 @@ func TestFileNavigation(t *testing.T) {
 		t.Errorf("Expected selected index 0, got %d", m.selectedFileIndex)
 	}
 
-	// Test navigation down to second file
 	result, _ = m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -43,7 +40,6 @@ func TestFileNavigation(t *testing.T) {
 		t.Errorf("Expected selected index 1, got %d", m.selectedFileIndex)
 	}
 
-	// Test wrapping around - moving down from last should go to first file
 	result, _ = m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -52,7 +48,6 @@ func TestFileNavigation(t *testing.T) {
 		t.Errorf("Expected selected index 0 (wrapped), got %d", m.selectedFileIndex)
 	}
 
-	// Test navigation down to second file
 	result, _ = m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -61,14 +56,12 @@ func TestFileNavigation(t *testing.T) {
 		t.Errorf("Expected selected index 1, got %d", m.selectedFileIndex)
 	}
 
-	// Test wrapping around - moving down from last should go to first file
 	result, _ = m.navigateFiles(1)
 	if result != nil {
 		m = *result
 	}
-	// After moving down from index 1 with 2 files, should wrap to index 0
 	if m.selectedFileIndex != 0 {
-		t.Errorf("Expected selected index 0 (wrapped from end), got %d", m.selectedFileIndex)
+		t.Errorf("Expected selected index 0 (wrapped), got %d", m.selectedFileIndex)
 	}
 }
 
@@ -83,7 +76,6 @@ func TestToggleAndUntoggle(t *testing.T) {
 		visibleFiles: make(map[string]bool),
 	}
 
-	// Test toggle
 	cmd := m.toggleFileVisibility("file1.go")
 	msg := cmd()
 	m.Update(msg)
@@ -92,7 +84,6 @@ func TestToggleAndUntoggle(t *testing.T) {
 		t.Error("Expected file to be hidden after toggle")
 	}
 
-	// Test untoggle
 	cmd = m.untoggleFileVisibility("file1.go")
 	msg = cmd()
 	m.Update(msg)
@@ -119,12 +110,10 @@ func TestToggleUntoggleWithNavigation(t *testing.T) {
 		visibleFiles: make(map[string]bool),
 	}
 
-	// First navigation selects first file
 	result, _ := m.navigateFiles(1)
 	if result != nil {
 		m = *result
 	}
-	// Navigate to second file (index 1)
 	result, _ = m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -133,7 +122,6 @@ func TestToggleUntoggleWithNavigation(t *testing.T) {
 		t.Errorf("Expected selected file to be file2.go, got %s", m.selectedFilePath)
 	}
 
-	// Toggle the selected file (file2.go) - should hide diff but keep file entry
 	cmd := m.toggleFileVisibility("file2.go")
 	msg := cmd()
 	m.Update(msg)
@@ -141,9 +129,7 @@ func TestToggleUntoggleWithNavigation(t *testing.T) {
 	if m.isDiffVisible("file2.go") {
 		t.Error("Expected file2.go diff to be hidden after toggle")
 	}
-	// File entries are always visible now, we only hide diffs
 
-	// Untoggle the selected file (file2.go) - should show diff again
 	cmd = m.untoggleFileVisibility("file2.go")
 	msg = cmd()
 	m.Update(msg)
@@ -170,7 +156,6 @@ func TestNavigationWrapping(t *testing.T) {
 		visibleFiles: make(map[string]bool),
 	}
 
-	// First navigation down should select first file
 	result, _ := m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -182,7 +167,6 @@ func TestNavigationWrapping(t *testing.T) {
 		t.Errorf("Expected selected file file1.go, got %s", m.selectedFilePath)
 	}
 
-	// Move down to second file
 	result, _ = m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -194,7 +178,6 @@ func TestNavigationWrapping(t *testing.T) {
 		t.Errorf("Expected selected file file2.go, got %s", m.selectedFilePath)
 	}
 
-	// Move down past end - should wrap to first file
 	result, _ = m.navigateFiles(1)
 	if result != nil {
 		m = *result
@@ -206,7 +189,6 @@ func TestNavigationWrapping(t *testing.T) {
 		t.Errorf("Expected selected file file1.go (wrapped), got %s", m.selectedFilePath)
 	}
 
-	// Move up before beginning - should wrap to last file
 	result, _ = m.navigateFiles(-1)
 	if result != nil {
 		m = *result
@@ -219,7 +201,6 @@ func TestNavigationWrapping(t *testing.T) {
 	}
 }
 
-// Test git operation detection - this tests the core functionality
 func TestGitOperationDetection(t *testing.T) {
 	m := Model{
 		entries: []types.DiffEntry{
@@ -237,7 +218,6 @@ func TestGitOperationDetection(t *testing.T) {
 		visibleFiles: make(map[string]bool),
 	}
 
-	// Simulate receiving a git operation marker
 	gitOpEntry := types.DiffEntry{
 		FilePath:  "__GIT_OPERATION__",
 		Timestamp: time.Now(),
@@ -246,24 +226,18 @@ func TestGitOperationDetection(t *testing.T) {
 		IsNew:     false,
 	}
 
-	// This should trigger a refresh command
 	msg := FileChangedMsg(gitOpEntry)
 	_, result := m.Update(msg)
 
-	// The result should be a command (could be tea.BatchCmd or single cmd)
-	// We can't easily inspect the exact command type, but we can verify it's not nil
 	if result == nil {
 		t.Errorf("Expected non-nil command after git operation")
 	}
 
-	// The model should schedule a refresh but not immediately clear entries
-	// (that happens when loadInitialEntries command executes)
 	if len(m.entries) != 2 {
 		t.Errorf("Expected entries to remain until refresh completes, got %d entries", len(m.entries))
 	}
 }
 
-// Test file removal after commit
 func TestCommittedFileRemoval(t *testing.T) {
 	m := Model{
 		entries: []types.DiffEntry{
@@ -276,7 +250,6 @@ func TestCommittedFileRemoval(t *testing.T) {
 		visibleFiles: make(map[string]bool),
 	}
 
-	// Simulate file being committed (empty diff, no error, not new)
 	committedEntry := types.DiffEntry{
 		FilePath:  "committed_file.go",
 		Timestamp: time.Now(),
@@ -288,13 +261,11 @@ func TestCommittedFileRemoval(t *testing.T) {
 	msg := FileChangedMsg(committedEntry)
 	m.Update(msg)
 
-	// File should be removed from entries
 	if len(m.entries) != 0 {
 		t.Errorf("Expected committed file to be removed, still have %d entries", len(m.entries))
 	}
 }
 
-// Test that regular file changes still work
 func TestRegularFileChange(t *testing.T) {
 	m := Model{
 		entries:      []types.DiffEntry{},
@@ -302,7 +273,6 @@ func TestRegularFileChange(t *testing.T) {
 		maxEntries:   10,
 	}
 
-	// Add a file change
 	fileEntry := types.DiffEntry{
 		FilePath:  "changed_file.go",
 		Timestamp: time.Now(),
@@ -314,18 +284,15 @@ func TestRegularFileChange(t *testing.T) {
 	msg := FileChangedMsg(fileEntry)
 	m.Update(msg)
 
-	// Should have one entry now
 	if len(m.entries) != 1 {
 		t.Errorf("Expected 1 entry after file change, got %d", len(m.entries))
 	}
 
-	// Should be the file we added
 	if m.entries[0].FilePath != "changed_file.go" {
 		t.Errorf("Expected changed_file.go, got %s", m.entries[0].FilePath)
 	}
 }
 
-// Test error handling for file changes
 func TestFileChangeWithError(t *testing.T) {
 	m := Model{
 		entries:      []types.DiffEntry{},
@@ -333,7 +300,6 @@ func TestFileChangeWithError(t *testing.T) {
 		maxEntries:   10,
 	}
 
-	// Add a file change with error
 	errorEntry := types.DiffEntry{
 		FilePath:  "error_file.go",
 		Timestamp: time.Now(),
@@ -345,26 +311,22 @@ func TestFileChangeWithError(t *testing.T) {
 	msg := FileChangedMsg(errorEntry)
 	m.Update(msg)
 
-	// Should still have the entry with error
 	if len(m.entries) != 1 {
 		t.Errorf("Expected 1 entry with error, got %d", len(m.entries))
 	}
 
-	// Should preserve the error
 	if m.entries[0].Error != "git diff failed: file not found" {
 		t.Errorf("Expected error to be preserved, got: %s", m.entries[0].Error)
 	}
 }
 
-// Test entry limit enforcement
 func TestMaxEntriesEnforcement(t *testing.T) {
 	m := Model{
 		entries:      []types.DiffEntry{},
 		visibleFiles: make(map[string]bool),
-		maxEntries:   2, // Set low limit for testing
+		maxEntries:   2,
 	}
 
-	// Add multiple files
 	for i := 0; i < 5; i++ {
 		fileName := fmt.Sprintf("file%d.go", i)
 		fileEntry := types.DiffEntry{
@@ -378,7 +340,6 @@ func TestMaxEntriesEnforcement(t *testing.T) {
 		m.Update(msg)
 	}
 
-	// Should not exceed maxEntries
 	if len(m.entries) > m.maxEntries {
 		t.Errorf("Expected at most %d entries, got %d", m.maxEntries, len(m.entries))
 	}

@@ -25,7 +25,6 @@ var builtinIgnores = []string{
 	".swp",
 	".swo",
 	"~",
-	// "vibewatch", // Removed - was causing issues with directory filtering
 }
 
 var ignoredExtensions = []string{
@@ -34,11 +33,11 @@ var ignoredExtensions = []string{
 	".bak",
 	".pid",
 	".lock",
-	".exe",   // Binary executables
-	".dll",   // DLL files
-	".so",    // Shared libraries
-	".dylib", // macOS libraries
-	".a",     // Static libraries
+	".exe",
+	".dll",
+	".so",
+	".dylib",
+	".a",
 }
 
 // Filter decides which paths should be ignored by the watcher.
@@ -56,7 +55,6 @@ func NewFilter(root string, repoRoots []string) *Filter {
 func (f *Filter) ShouldIgnore(path string) bool {
 	base := filepath.Base(path)
 
-	// Special case: allow .git directory and specific files to detect git operations
 	if base == ".git" {
 		return false
 	}
@@ -64,24 +62,19 @@ func (f *Filter) ShouldIgnore(path string) bool {
 		return false
 	}
 
-	// Check if this is a Go binary or build artifact
 	if strings.HasSuffix(path, ".exe") || strings.HasSuffix(path, ".so") ||
 		strings.HasSuffix(path, ".dylib") || strings.HasSuffix(path, ".a") ||
 		strings.HasSuffix(path, ".o") || strings.HasSuffix(path, ".out") {
 		return true
 	}
 
-	// Check for files with long numbers (like watcher.go123456789)
-	// Pattern: filename + numbers (8+ digits)
 	if match, _ := regexp.MatchString(`\.[0-9]{8,}$`, base); match {
 		return true
 	}
 
-	// Check for executable files without extensions (common for Unix binaries)
 	if !strings.Contains(base, ".") {
 		info, err := os.Stat(path)
 		if err == nil && !info.IsDir() && info.Mode()&0111 != 0 {
-			// This is an executable file without extension, likely a binary
 			return true
 		}
 	}
@@ -99,14 +92,11 @@ func (f *Filter) ShouldIgnore(path string) bool {
 		}
 	}
 
-	// Check any path component against directory ignores
-	// EXCEPT for the root directory itself (e.g., "vibewatch" repo)
 	rel, err := filepath.Rel(f.root, path)
 	if err == nil && rel != "." {
 		parts := strings.Split(rel, string(os.PathSeparator))
 		for _, part := range parts {
 			for _, pattern := range builtinIgnores {
-				// Skip if this is the first component (the repo name itself)
 				if part == parts[0] && part == "vibewatch" {
 					continue
 				}
@@ -117,7 +107,6 @@ func (f *Filter) ShouldIgnore(path string) bool {
 		}
 	}
 
-	// Use git check-ignore for the matching repo
 	repoRoot := differ.FindRepoRoot(path, f.repoRoots)
 	if repoRoot != "" {
 		if differ.IsGitIgnored(repoRoot, path) {

@@ -1,6 +1,5 @@
 package main
 
-
 import (
 	"context"
 	"flag"
@@ -23,11 +22,9 @@ func main() {
 	maxEntries := flag.Int("max", 200, "maximum number of diff entries to keep")
 	flag.Parse()
 
-	// Set up graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Handle interrupt signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -55,7 +52,6 @@ func main() {
 	var singleBranch string
 
 	if differ.IsGitRepo(absDir) {
-		// Single repo mode
 		gd, err := differ.NewGit(absDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -67,7 +63,6 @@ func main() {
 		repoNames = []string{filepath.Base(absDir)}
 		singleBranch = differ.GetBranch(absDir)
 	} else {
-		// Multi-repo mode: discover git repos inside this directory
 		repos, err := differ.DiscoverRepos(absDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error scanning for repos: %v\n", err)
@@ -101,7 +96,6 @@ func main() {
 		}
 	}
 
-	// Create filter and watcher
 	filter := watcher.NewFilter(absDir, repoRoots)
 	w, err := watcher.New(absDir, filter)
 	if err != nil {
@@ -110,7 +104,6 @@ func main() {
 	}
 	defer w.Close()
 
-	// Run TUI with context for graceful shutdown
 	m := model.New(w.Changes(), d, *maxEntries, modeLabel, repoNames, branches, singleBranch)
 	p := tea.NewProgram(&m, tea.WithAltScreen(), tea.WithMouseAllMotion(), tea.WithContext(ctx))
 	if _, err := p.Run(); err != nil {
@@ -120,9 +113,3 @@ func main() {
 		}
 	}
 }
-
-// Test comment for watching - this should trigger a change detection
-// Another test comment to verify real-time updates are working
-// Third test comment - checking if multiple rapid changes work correctly
-// Fourth test - after fixing the processPendingChanges function
-// Fifth test - checking if the watcher is properly detecting changes now

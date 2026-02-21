@@ -146,7 +146,7 @@ func initModelDebugLogging(root string) {
 		modelDebugFile.Close()
 	}
 
-	debugPath := fmt.Sprintf("%s/model_debug.log", root)
+	debugPath := fmt.Sprintf("%s/model.log", root)
 	var err error
 	modelDebugFile, err = os.Create(debugPath)
 	if err != nil {
@@ -154,7 +154,7 @@ func initModelDebugLogging(root string) {
 		return
 	}
 
-	modelDebugFile.WriteString("=== Model Debug Log ===\n")
+	modelDebugFile.WriteString("=== Model Log ===\n")
 	modelDebugFile.WriteString(fmt.Sprintf("Started: %s\n", time.Now().Format("2006-01-02 15:04:05")))
 	modelDebugFile.Sync()
 }

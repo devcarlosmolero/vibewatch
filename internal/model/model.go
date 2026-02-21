@@ -26,9 +26,6 @@ type Model struct {
 	maxEntries        int
 	paused            bool
 	showHelp          bool
-	showDebug         bool
-	debugMessages     []string
-	debugMu           sync.Mutex
 	ready             bool
 	dir               string
 	tabs              []string
@@ -57,13 +54,11 @@ func New(changes <-chan string, d differ.Differ, maxEntries int, dir string, rep
 		branches:        branches,
 		branch:          branch,
 		visibleFiles:    make(map[string]bool),
-		debugMessages:   make([]string, 0, 100),
 		showHiddenCount: 0,
 	}
 }
 
 func (m *Model) Init() tea.Cmd {
-	// Initialize model debug logging
 	initModelDebugLogging("/Users/carlos/Desktop/Git/vibewatch")
 	logMessage("Model initialized, waiting for changes...")
 
@@ -75,12 +70,6 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
-
-	// Debug: Log all incoming messages
-	if m.showDebug {
-		msgType := fmt.Sprintf("%T", msg)
-		m.addDebugMessage(fmt.Sprintf("Received message: %s", msgType))
-	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -177,18 +166,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.navigateFiles(-1)
 		case "down", "j":
 			return m.navigateFiles(1)
-		case "d":
-			m.showDebug = !m.showDebug
-			if m.showDebug {
-				m.addDebugMessage("Debug console enabled")
-			} else {
-				m.addDebugMessage("Debug console disabled")
-			}
-			return m, nil
-		case "D":
-			m.clearDebugMessages()
-			m.addDebugMessage("Debug messages cleared")
-			return m, nil
+
 		}
 
 	case tea.WindowSizeMsg:
@@ -225,19 +203,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case FileChangedMsg:
 		entry := types.DiffEntry(msg)
-		m.addDebugMessage(fmt.Sprintf("Received change for: %s", entry.FilePath))
 
 		// Special handling for git operations (commit, etc.)
+		// When .git/HEAD or .git/index changes, we need to refresh all files
 		if entry.FilePath == "__GIT_OPERATION__" {
-			m.addDebugMessage("Git operation detected, refreshing all entries")
-			logMessage("Model: Git operation detected, refreshing all entries")
+			logMessage("Model: Git operation detected, refreshing all files")
 			cmds = append(cmds, loadInitialEntries(m.differ))
 			cmds = append(cmds, waitForChange(m.changes, m.differ))
 			return m, tea.Batch(cmds...)
 		}
 
 		if entry.Diff == "" && entry.Error == "" && !entry.IsNew {
-			m.addDebugMessage(fmt.Sprintf("File reverted/committed: %s", entry.FilePath))
 			logMessage(fmt.Sprintf("Model: Removing committed file: %s", entry.FilePath))
 			m.entries = removeEntriesForFile(m.entries, entry.FilePath)
 			m.viewport.SetContent(m.renderEntries())
@@ -246,10 +222,32 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if entry.Error != "" {
-			m.addDebugMessage(fmt.Sprintf("Error getting diff for %s: %s", entry.FilePath, entry.Error))
+			logMessage(fmt.Sprintf("Model: Error getting diff for %s: %s", entry.FilePath, entry.Error))
 		}
 
-		m.addDebugMessage(fmt.Sprintf("Updated diff for: %s (lines: %d)", entry.FilePath, strings.Count(entry.Diff, "\n")))
+		m.entries = removeEntriesForFile(m.entries, entry.FilePath)
+		m.entries = append([]types.DiffEntry{entry}, m.entries...)
+		if len(m.entries) > m.maxEntries {
+			m.entries = m.entries[:m.maxEntries]
+		}
+		m.viewport.SetContent(m.renderEntries())
+		if !m.paused {
+			m.viewport.GotoTop()
+		}
+		cmds = append(cmds, waitForChange(m.changes, m.differ))
+		return m, tea.Batch(cmds...)
+
+		if entry.Diff == "" && entry.Error == "" && !entry.IsNew {
+			logMessage(fmt.Sprintf("Model: Removing committed file: %s", entry.FilePath))
+			m.entries = removeEntriesForFile(m.entries, entry.FilePath)
+			m.viewport.SetContent(m.renderEntries())
+			cmds = append(cmds, waitForChange(m.changes, m.differ))
+			return m, tea.Batch(cmds...)
+		}
+
+		if entry.Error != "" {
+			logMessage(fmt.Sprintf("Model: Error getting diff for %s: %s", entry.FilePath, entry.Error))
+		}
 		m.entries = removeEntriesForFile(m.entries, entry.FilePath)
 		m.entries = append([]types.DiffEntry{entry}, m.entries...)
 		if len(m.entries) > m.maxEntries {
@@ -284,7 +282,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case UntoggleFileMsg:
 		filePath := string(msg)
-		// Show the file (set to visible)
 		m.visibleFilesMu.Lock()
 		if _, exists := m.visibleFiles[filePath]; exists {
 			m.visibleFiles[filePath] = true
@@ -292,7 +289,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.visibleFilesMu.Unlock()
 		m.viewport.SetContent(m.renderEntries())
-		// If the untoggled file is the selected one, ensure it's visible
 		if filePath == m.selectedFilePath {
 			m.ensureSelectedFileVisible()
 		}
@@ -338,7 +334,7 @@ func (m *Model) View() string {
 	if len(m.tabs) > 0 {
 		status += "  tab switch"
 	}
-	status += "  t toggle  d debug  ? help  q quit"
+	status += "  t toggle  ? help  q quit"
 	statusBar := StatusBarStyle.Width(m.width).Render(status)
 
 	// Help overlay
@@ -355,10 +351,6 @@ func (m *Model) View() string {
 		mainContent = header + "\n" + m.viewport.View()
 	}
 
-	if m.showDebug {
-		debugConsole := m.renderDebugConsole()
-		return mainContent + "\n" + debugConsole + "\n" + statusBar
-	}
 	return mainContent + "\n" + statusBar
 }
 
@@ -546,27 +538,6 @@ func (m *Model) isDiffVisible(filePath string) bool {
 	return true
 }
 
-// addDebugMessage adds a debug message to the debug console
-func (m *Model) addDebugMessage(message string) {
-	m.debugMu.Lock()
-	defer m.debugMu.Unlock()
-
-	// Limit debug messages to prevent memory issues
-	if len(m.debugMessages) >= 100 {
-		m.debugMessages = m.debugMessages[1:]
-	}
-
-	timestamp := time.Now().Format("15:04:05")
-	m.debugMessages = append(m.debugMessages, fmt.Sprintf("[%s] %s", timestamp, message))
-}
-
-// clearDebugMessages clears all debug messages
-func (m *Model) clearDebugMessages() {
-	m.debugMu.Lock()
-	defer m.debugMu.Unlock()
-	m.debugMessages = m.debugMessages[:0]
-}
-
 // toggleFileVisibility toggles the visibility of a file and returns a command to update the view
 func (m *Model) toggleFileVisibility(filePath string) tea.Cmd {
 	return func() tea.Msg {
@@ -623,11 +594,6 @@ func (m *Model) navigateFiles(delta int) (*Model, tea.Cmd) {
 
 // ensureSelectedFileVisible scrolls the viewport to make sure the selected file is visible
 func (m *Model) ensureSelectedFileVisible() {
-	if m.selectedFileIndex < 0 || m.selectedFileIndex >= len(m.filteredEntries()) {
-		return
-	}
-
-	// Refresh the content first
 	m.viewport.SetContent(m.renderEntries())
 
 	// For simple navigation, just ensure the selected file is somewhere in the viewport
@@ -649,32 +615,6 @@ func (m *Model) ensureSelectedFileVisible() {
 
 	// For middle positions, the viewport will naturally show the right area
 	// as the user navigates, so we don't need to do precise scrolling
-}
-
-// renderDebugConsole renders the debug console at the bottom of the screen
-func (m *Model) renderDebugConsole() string {
-	m.debugMu.Lock()
-	defer m.debugMu.Unlock()
-
-	if len(m.debugMessages) == 0 {
-		return DebugConsoleStyle.Width(m.width).Render("Debug console: no messages")
-	}
-
-	// Show up to 5 most recent debug messages
-	start := 0
-	if len(m.debugMessages) > 5 {
-		start = len(m.debugMessages) - 5
-	}
-
-	var content strings.Builder
-	for i := start; i < len(m.debugMessages); i++ {
-		if i > start {
-			content.WriteString("\n")
-		}
-		content.WriteString(m.debugMessages[i])
-	}
-
-	return DebugConsoleStyle.Width(m.width).Render(content.String())
 }
 
 func loadInitialEntries(d differ.Differ) tea.Cmd {
