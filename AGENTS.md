@@ -39,7 +39,11 @@ Please refer to the **[CONTEXT.md](CONTEXT.md)** file.
 
 ### Debugging
 
-Debug logs are created in the repository root:
+Debug logs are created in platform-specific directories:
+- **macOS**: `~/Library/Logs/vibewatch/`
+- **Linux**: `~/.cache/vibewatch/` (or `$XDG_CACHE_HOME/vibewatch` if set)
+
+Log files created:
 - `watcher.log` - Watcher events
 - `model.log` - Model processing
 
