@@ -5,6 +5,7 @@ This file provides information for agents working with the Vibewatch codebase.
 ## Architecture Documentation
 
 For complete architecture documentation, including:
+
 - System overview and component architecture
 - File watching pipeline explanation
 - Batch processing details
@@ -40,11 +41,11 @@ Please refer to the **[CONTEXT.md](CONTEXT.md)** file.
 ### Debugging
 
 Debug logs are created in platform-specific directories:
+
 - **macOS**: `~/Library/Logs/vibewatch/`
 - **Linux**: `~/.cache/vibewatch/` (or `$XDG_CACHE_HOME/vibewatch` if set)
 
 Log files created:
+
 - `watcher.log` - Watcher events
 - `model.log` - Model processing
-
-See CONTEXT.md for detailed debugging information.
