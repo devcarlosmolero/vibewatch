@@ -25,6 +25,10 @@ type Differ interface {
 	Diff(filePath string) (types.DiffEntry, error)
 	// DirtyFiles returns DiffEntries for all files with uncommitted changes.
 	DirtyFiles() ([]types.DiffEntry, error)
+	// RepoRoots returns the root paths of all repositories being watched.
+	RepoRoots() []string
+	// RepoRootsWithNames returns a map of repo root paths to repo names.
+	RepoRootsWithNames() map[string]string
 }
 
 // cacheEntry represents a cached diff result
@@ -255,6 +259,21 @@ func (g *GitDiffer) ClearCache() {
 	g.cacheMutex.Unlock()
 }
 
+// Root returns the root path of the repository.
+func (g *GitDiffer) Root() string {
+	return g.root
+}
+
+// RepoRoots returns the root paths of all repositories being watched.
+func (g *GitDiffer) RepoRoots() []string {
+	return []string{g.root}
+}
+
+// RepoRootsWithNames returns a map of repo root paths to repo names.
+func (g *GitDiffer) RepoRootsWithNames() map[string]string {
+	return map[string]string{g.root: filepath.Base(g.root)}
+}
+
 // MultiDiffer routes file paths to the correct GitDiffer based on which repo
 // the file belongs to. Used when watching a parent directory containing multiple repos.
 type MultiDiffer struct {
@@ -333,6 +352,15 @@ func (m *MultiDiffer) RepoRoots() []string {
 		roots[i] = r.root
 	}
 	return roots
+}
+
+// RepoRootsWithNames returns a map of repo root paths to repo names.
+func (m *MultiDiffer) RepoRootsWithNames() map[string]string {
+	repos := make(map[string]string)
+	for _, r := range m.repos {
+		repos[r.root] = r.name
+	}
+	return repos
 }
 
 // DiscoverRepos walks a directory and returns a map of

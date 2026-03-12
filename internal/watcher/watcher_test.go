@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// TestFilterGitDirectory tests that .git directory is allowed for watching
 func TestFilterGitDirectory(t *testing.T) {
 	repos := []string{"/test/repo"}
 	filter := NewFilter("/test", repos)
@@ -22,7 +21,6 @@ func TestFilterGitDirectory(t *testing.T) {
 	}
 }
 
-// TestFilterBuiltinIgnores tests that built-in ignores work
 func TestFilterBuiltinIgnores(t *testing.T) {
 	repos := []string{"/test/repo"}
 	filter := NewFilter("/test", repos)
@@ -40,7 +38,6 @@ func TestFilterBuiltinIgnores(t *testing.T) {
 	}
 }
 
-// TestFilterGitIgnoredFiles tests git ignore integration
 func TestFilterGitIgnoredFiles(t *testing.T) {
 	repos := []string{"/test/repo"}
 	filter := NewFilter("/test", repos)
@@ -48,7 +45,6 @@ func TestFilterGitIgnoredFiles(t *testing.T) {
 	_ = filter.ShouldIgnore("/test/repo/somefile.go")
 }
 
-// TestFilterNormalFiles tests that normal files are not ignored
 func TestFilterNormalFiles(t *testing.T) {
 	repos := []string{"/test/repo"}
 	filter := NewFilter("/test", repos)
@@ -62,7 +58,6 @@ func TestFilterNormalFiles(t *testing.T) {
 	}
 }
 
-// TestFilterBinaryFiles tests that binary files are ignored
 func TestFilterBinaryFiles(t *testing.T) {
 	repos := []string{"/test/repo"}
 	filter := NewFilter("/test", repos)

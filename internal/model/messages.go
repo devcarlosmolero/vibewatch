@@ -16,3 +16,6 @@ type ShowAllFilesMsg bool
 
 // UntoggleFileMsg is sent when a specific file should be made visible.
 type UntoggleFileMsg string
+
+// UpdateBranchesMsg is sent when branch information should be refreshed.
+type UpdateBranchesMsg map[string]string

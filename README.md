@@ -22,7 +22,7 @@
 
 - **Real-time file monitoring**: See changes as they happen in your repository
 - **Git diff integration**: View actual code changes, not just file names
-- **Multi-repository support**: Monitor multiple Git repositories simultaneously
+- **Multi-repository support**: Monitor multiple Git repositories simultaneously with optional filtering
 - **Interactive TUI**: Clean, keyboard-navigable terminal interface
 - **AI agent friendly**: Designed to help track changes made by CLI AI coding assistants
 - **Batch processing**: Efficiently handles rapid file changes
@@ -68,6 +68,7 @@ vibewatch -dir /path/to/your/repo
 | Flag         | Description                                                                                                                                           |
 | :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **-dir**     | Specify the directory to watch. Defaults to current directory. Can be a single Git repository or a parent directory containing multiple repositories. |
+| **-repos**   | Filter repositories in multi-repo mode. Comma-separated list of repository names to monitor (e.g., `-repos repo1,repo2`). Only applies when watching multiple repositories. |
 | **-max**     | Set the maximum number of diff entries to keep (default: 200). Useful for limiting memory usage in large repositories.                                |
 | **-version** | Print the version of Vibewatch and exit.                                                                                                              |
 
@@ -80,6 +81,12 @@ vibewatch -dir /path/to/parent/directory
 ```
 
 This will automatically detect and monitor all Git repositories within the specified directory.
+
+To filter specific repositories in multi-repo mode:
+
+```bash
+vibewatch -dir /path/to/parent/directory -repos repo1,repo2
+```
 
 ### Keyboard Controls
 

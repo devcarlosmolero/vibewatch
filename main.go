@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strings"
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +23,7 @@ var version = "1.0.1" // Default version, can be overridden with -ldflags: -ldfl
 func main() {
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	dir := flag.String("dir", ".", "directory to watch (git repo or parent of multiple repos)")
+	repoFilter := flag.String("repos", "", "comma-separated list of repo names to watch (only applies in multi-repo mode)")
 	maxEntries := flag.Int("max", 200, "maximum number of diff entries to keep")
 	flag.Parse()
 
@@ -71,15 +73,49 @@ func main() {
 		repoNames = []string{filepath.Base(absDir)}
 		singleBranch = differ.GetBranch(absDir)
 	} else {
-		repos, err := differ.DiscoverRepos(absDir)
+		allRepos, err := differ.DiscoverRepos(absDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error scanning for repos: %v\n", err)
 			os.Exit(1)
 		}
-		if len(repos) == 0 {
+		if len(allRepos) == 0 {
 			fmt.Fprintf(os.Stderr, "Error: %s is not a git repository and contains no git repositories.\n", absDir)
 			fmt.Fprintf(os.Stderr, "Point vibewatch at a git repo or a directory containing repos.\n")
 			os.Exit(1)
+		}
+
+		// Filter repos based on the repoFilter flag
+		var repos map[string]string
+		if *repoFilter != "" {
+			filterList := strings.Split(*repoFilter, ",")
+			for _, name := range filterList {
+				name = strings.TrimSpace(name)
+				if name == "" {
+					continue
+				}
+				// Find the repo with this name
+				found := false
+				for root, repoName := range allRepos {
+					if repoName == name {
+						if repos == nil {
+							repos = make(map[string]string)
+						}
+						repos[root] = repoName
+						found = true
+						break
+					}
+				}
+				if !found {
+					fmt.Fprintf(os.Stderr, "Warning: Repository '%s' not found in %s\n", name, absDir)
+				}
+			}
+			if len(repos) == 0 {
+				fmt.Fprintf(os.Stderr, "Error: None of the specified repositories were found\n")
+				os.Exit(1)
+			}
+		} else {
+			// No filter provided, use all repos
+			repos = allRepos
 		}
 
 		md, err := differ.NewMulti(repos)

@@ -22,8 +22,6 @@ func renderHelp() string {
 		"  1-9            Jump to tab by number\n" +
 		"  j / ↓          Scroll down\n" +
 		"  k / ↑          Scroll up\n" +
-		"  d / PgDn       Page down\n" +
-		"  u / PgUp       Page up\n" +
 		"  g / Home       Go to top\n" +
 		"  G / End        Go to bottom\n" +
 		"  p              Pause / Resume\n" +

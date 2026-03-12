@@ -231,8 +231,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		entry := types.DiffEntry(msg)
 
 		if entry.FilePath == "__GIT_OPERATION__" {
-			logMessage("Model: Git operation detected, refreshing all files")
+			logMessage("Model: Git operation detected, refreshing all files and branches")
 			cmds = append(cmds, loadInitialEntries(m.differ))
+			cmds = append(cmds, updateBranches(m.differ))
 			cmds = append(cmds, waitForChange(m.changes, m.differ))
 			return m, tea.Batch(cmds...)
 		}
@@ -292,6 +293,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(m.renderEntries())
 		if filePath == m.selectedFilePath {
 			m.ensureSelectedFileVisible()
+		}
+		return m, nil
+	case UpdateBranchesMsg:
+		newBranches := map[string]string(msg)
+		m.branches = newBranches
+		// If we're in single repo mode, also update the branch field
+		if len(m.tabs) == 0 && len(newBranches) == 1 {
+			for _, branch := range newBranches {
+				m.branch = branch
+				break
+			}
 		}
 		return m, nil
 	}
@@ -609,6 +621,35 @@ func loadInitialEntries(d differ.Differ) tea.Cmd {
 			return InitialEntriesMsg(nil)
 		}
 		return InitialEntriesMsg(entries)
+	}
+}
+
+func updateBranches(d differ.Differ) tea.Cmd {
+	return func() tea.Msg {
+		// Try to cast to MultiDiffer to get all branches
+		if md, ok := d.(*differ.MultiDiffer); ok {
+			branches := make(map[string]string)
+			for _, repo := range md.RepoRoots() {
+				branch := differ.GetBranch(repo)
+				if branch != "" {
+					// Use the repo name from the MultiDiffer
+					for root, name := range md.RepoRootsWithNames() {
+						if root == repo {
+							branches[name] = branch
+							break
+						}
+					}
+				}
+			}
+			return UpdateBranchesMsg(branches)
+		} else if gd, ok := d.(*differ.GitDiffer); ok {
+			// Single repo case
+			branch := differ.GetBranch(gd.Root())
+			if branch != "" {
+				return UpdateBranchesMsg(map[string]string{filepath.Base(gd.Root()): branch})
+			}
+		}
+		return nil
 	}
 }
 
