@@ -1,0 +1,537 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>differ: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">codeberg.org/devcarlosmolero/vibewatch/internal/differ/differ.go (86.2%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package differ
+
+import (
+        "bytes"
+        "fmt"
+        "io/fs"
+        "os"
+        "os/exec"
+        "path/filepath"
+        "sort"
+        "strings"
+        "sync"
+        "time"
+
+        "codeberg.org/devcarlosmolero/vibewatch/internal/types"
+)
+
+var (
+        debugFile  *os.File
+        debugMutex sync.Mutex
+)
+
+// Differ computes diffs for changed files.
+type Differ interface {
+        Diff(filePath string) (types.DiffEntry, error)
+        // DirtyFiles returns DiffEntries for all files with uncommitted changes.
+        DirtyFiles() ([]types.DiffEntry, error)
+        // RepoRoots returns the root paths of all repositories being watched.
+        RepoRoots() []string
+        // RepoRootsWithNames returns a map of repo root paths to repo names.
+        RepoRootsWithNames() map[string]string
+}
+
+// cacheEntry represents a cached diff result
+type cacheEntry struct {
+        diff      string
+        timestamp time.Time
+        error     string
+        isNew     bool
+}
+
+// GitDiffer uses git to compute diffs.
+type GitDiffer struct {
+        root       string
+        diffCache  map[string]cacheEntry
+        cacheMutex sync.Mutex
+}
+
+// logMessage writes a debug message to the debug file
+func logMessage(message string) <span class="cov8" title="1">{
+        debugMutex.Lock()
+        defer debugMutex.Unlock()
+
+        if debugFile != nil </span><span class="cov0" title="0">{
+                timestamp := time.Now().Format("15:04:05")
+                debugFile.WriteString(fmt.Sprintf("[%s] %s\n", timestamp, message))
+                debugFile.Sync()
+        }</span>
+}
+
+// NewGit creates a GitDiffer after verifying the directory is a git repo.
+func NewGit(root string) (*GitDiffer, error) <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", root, "rev-parse", "--git-dir")
+        if err := cmd.Run(); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("not a git repository: %s", root)
+        }</span>
+        <span class="cov8" title="1">return &amp;GitDiffer{
+                root:      root,
+                diffCache: make(map[string]cacheEntry),
+        }, nil</span>
+}
+
+// Diff computes the diff for a single file.
+func (g *GitDiffer) Diff(filePath string) (types.DiffEntry, error) <span class="cov8" title="1">{
+        if filePath == "__GIT_OPERATION__" </span><span class="cov8" title="1">{
+                return types.DiffEntry{
+                        FilePath:  filePath,
+                        Timestamp: time.Now(),
+                        Repo:      filepath.Base(g.root),
+                        Diff:      "",
+                        Error:     "",
+                        IsNew:     false,
+                }, nil
+        }</span>
+
+        <span class="cov8" title="1">entry := types.DiffEntry{
+                FilePath:  filePath,
+                Timestamp: time.Now(),
+                Repo:      filepath.Base(g.root),
+        }
+
+        g.cacheMutex.Lock()
+        if cached, exists := g.diffCache[filePath]; exists </span><span class="cov8" title="1">{
+                if time.Since(cached.timestamp) &lt; 1*time.Second </span><span class="cov8" title="1">{
+                        entry.Diff = cached.diff
+                        entry.Error = cached.error
+                        entry.IsNew = cached.isNew
+                        g.cacheMutex.Unlock()
+                        return entry, nil
+                }</span>
+        }
+        <span class="cov8" title="1">g.cacheMutex.Unlock()
+
+        rel, err := filepath.Rel(g.root, filePath)
+        if err != nil </span><span class="cov0" title="0">{
+                rel = filePath
+        }</span>
+
+        <span class="cov8" title="1">diff, err := g.gitDiff(rel)
+        if err != nil </span><span class="cov0" title="0">{
+                entry.Error = err.Error()
+                g.cacheResult(filePath, entry)
+                return entry, nil
+        }</span>
+
+        <span class="cov8" title="1">if diff == "" </span><span class="cov8" title="1">{
+                diff, err = g.gitDiffStaged(rel)
+                if err != nil </span><span class="cov0" title="0">{
+                        entry.Error = err.Error()
+                        g.cacheResult(filePath, entry)
+                        return entry, nil
+                }</span>
+        }
+
+        <span class="cov8" title="1">if diff == "" </span><span class="cov8" title="1">{
+                tracked, _ := g.isTracked(rel)
+                if !tracked </span><span class="cov8" title="1">{
+                        diff, err = g.gitDiffUntracked(filePath)
+                        if err != nil </span><span class="cov0" title="0">{
+                                entry.Error = err.Error()
+                                g.cacheResult(filePath, entry)
+                                return entry, nil
+                        }</span>
+                        <span class="cov8" title="1">entry.IsNew = true</span>
+                } else<span class="cov8" title="1"> {
+                        logMessage(fmt.Sprintf("Differ: File committed/clean, clearing diff: %s", filePath))
+                        entry.Diff = ""
+                        entry.Error = ""
+                        entry.IsNew = false
+                        g.cacheResult(filePath, entry)
+                        return entry, nil
+                }</span>
+        }
+
+        <span class="cov8" title="1">entry.Diff = diff
+        g.cacheResult(filePath, entry)
+        return entry, nil</span>
+}
+
+// DirtyFiles returns DiffEntries for all files with uncommitted changes in this repo.
+func (g *GitDiffer) DirtyFiles() ([]types.DiffEntry, error) <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", g.root, "diff", "--name-only", "HEAD")
+        var out bytes.Buffer
+        cmd.Stdout = &amp;out
+        cmd.Stderr = &amp;bytes.Buffer{}
+        if err := cmd.Run(); err != nil </span><span class="cov0" title="0">{
+                cmd = exec.Command("git", "-C", g.root, "diff", "--name-only")
+                out.Reset()
+                cmd.Stdout = &amp;out
+                cmd.Stderr = &amp;bytes.Buffer{}
+                cmd.Run()
+        }</span>
+
+        <span class="cov8" title="1">cmd2 := exec.Command("git", "-C", g.root, "diff", "--name-only")
+        var out2 bytes.Buffer
+        cmd2.Stdout = &amp;out2
+        cmd2.Stderr = &amp;bytes.Buffer{}
+        cmd2.Run()
+
+        cmd3 := exec.Command("git", "-C", g.root, "ls-files", "--others", "--exclude-standard")
+        var out3 bytes.Buffer
+        cmd3.Stdout = &amp;out3
+        cmd3.Stderr = &amp;bytes.Buffer{}
+        cmd3.Run()
+
+        seen := make(map[string]bool)
+        var relPaths []string
+        for _, o := range []string{out.String(), out2.String(), out3.String()} </span><span class="cov8" title="1">{
+                for _, line := range strings.Split(strings.TrimSpace(o), "\n") </span><span class="cov8" title="1">{
+                        line = strings.TrimSpace(line)
+                        if line == "" || seen[line] </span><span class="cov8" title="1">{
+                                continue</span>
+                        }
+                        <span class="cov8" title="1">seen[line] = true
+                        relPaths = append(relPaths, line)</span>
+                }
+        }
+
+        <span class="cov8" title="1">var entries []types.DiffEntry
+        for _, relPath := range relPaths </span><span class="cov8" title="1">{
+                lower := strings.ToLower(relPath)
+                if strings.HasSuffix(lower, ".tmp") || strings.HasSuffix(lower, ".log") ||
+                        strings.HasSuffix(lower, ".bak") || strings.HasSuffix(lower, ".swp") </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">absPath := filepath.Join(g.root, relPath)
+                entry, _ := g.Diff(absPath)
+                if entry.Diff != "" || entry.IsNew </span><span class="cov8" title="1">{
+                        entries = append(entries, entry)
+                }</span>
+        }
+        <span class="cov8" title="1">return entries, nil</span>
+}
+
+func (g *GitDiffer) gitDiff(relPath string) (string, error) <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", g.root, "diff", "--no-color", "--unified=3", "--", relPath)
+        var out bytes.Buffer
+        cmd.Stdout = &amp;out
+        cmd.Stderr = &amp;bytes.Buffer{}
+        if err := cmd.Run(); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">return strings.TrimSpace(out.String()), nil</span>
+}
+
+func (g *GitDiffer) gitDiffStaged(relPath string) (string, error) <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", g.root, "diff", "--no-color", "--unified=3", "--cached", "--", relPath)
+        var out bytes.Buffer
+        cmd.Stdout = &amp;out
+        cmd.Stderr = &amp;bytes.Buffer{}
+        if err := cmd.Run(); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+        <span class="cov8" title="1">return strings.TrimSpace(out.String()), nil</span>
+}
+
+func (g *GitDiffer) isTracked(relPath string) (bool, error) <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", g.root, "ls-files", "--error-unmatch", relPath)
+        cmd.Stdout = &amp;bytes.Buffer{}
+        cmd.Stderr = &amp;bytes.Buffer{}
+        err := cmd.Run()
+        return err == nil, nil
+}</span>
+
+func (g *GitDiffer) cacheResult(filePath string, entry types.DiffEntry) <span class="cov8" title="1">{
+        g.cacheMutex.Lock()
+        defer g.cacheMutex.Unlock()
+        g.diffCache[filePath] = cacheEntry{
+                diff:      entry.Diff,
+                timestamp: time.Now(),
+                error:     entry.Error,
+                isNew:     entry.IsNew,
+        }
+}</span>
+
+func (g *GitDiffer) gitDiffUntracked(absPath string) (string, error) <span class="cov8" title="1">{
+        cmd := exec.Command("git", "diff", "--no-color", "--no-index", "--", "/dev/null", absPath)
+        var out bytes.Buffer
+        cmd.Stdout = &amp;out
+        cmd.Stderr = &amp;bytes.Buffer{}
+        cmd.Run()
+        return strings.TrimSpace(out.String()), nil
+}</span>
+
+// ClearCache clears the diff cache, useful when git state changes (commit, reset, etc.)
+func (g *GitDiffer) ClearCache() <span class="cov8" title="1">{
+        g.cacheMutex.Lock()
+        g.diffCache = make(map[string]cacheEntry)
+        g.cacheMutex.Unlock()
+}</span>
+
+// Root returns the root path of the repository.
+func (g *GitDiffer) Root() string <span class="cov8" title="1">{
+        return g.root
+}</span>
+
+// RepoRoots returns the root paths of all repositories being watched.
+func (g *GitDiffer) RepoRoots() []string <span class="cov8" title="1">{
+        return []string{g.root}
+}</span>
+
+// RepoRootsWithNames returns a map of repo root paths to repo names.
+func (g *GitDiffer) RepoRootsWithNames() map[string]string <span class="cov8" title="1">{
+        return map[string]string{g.root: filepath.Base(g.root)}
+}</span>
+
+// MultiDiffer routes file paths to the correct GitDiffer based on which repo
+// the file belongs to. Used when watching a parent directory containing multiple repos.
+type MultiDiffer struct {
+        repos []repoEntry // sorted longest-path-first for correct matching
+}
+
+type repoEntry struct {
+        root   string
+        name   string
+        differ *GitDiffer
+}
+
+// NewMulti creates a MultiDiffer from a list of discovered repo roots.
+func NewMulti(repos map[string]string) (*MultiDiffer, error) <span class="cov8" title="1">{
+        if len(repos) == 0 </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("no git repositories found")
+        }</span>
+
+        <span class="cov8" title="1">var entries []repoEntry
+        for root, name := range repos </span><span class="cov8" title="1">{
+                d, err := NewGit(root)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span> // skip repos that fail init
+                }
+                <span class="cov8" title="1">entries = append(entries, repoEntry{root: root, name: name, differ: d})</span>
+        }
+
+        <span class="cov8" title="1">if len(entries) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no valid git repositories found")
+        }</span>
+
+        // Sort longest path first so nested repos match before parents
+        <span class="cov8" title="1">sort.Slice(entries, func(i, j int) bool </span><span class="cov8" title="1">{
+                return len(entries[i].root) &gt; len(entries[j].root)
+        }</span>)
+
+        <span class="cov8" title="1">return &amp;MultiDiffer{repos: entries}, nil</span>
+}
+
+// Diff finds the matching repo for the file path and computes the diff.
+func (m *MultiDiffer) Diff(filePath string) (types.DiffEntry, error) <span class="cov8" title="1">{
+        for _, repo := range m.repos </span><span class="cov8" title="1">{
+                if strings.HasPrefix(filePath, repo.root+string(filepath.Separator)) || filePath == repo.root </span><span class="cov8" title="1">{
+                        entry, err := repo.differ.Diff(filePath)
+                        entry.Repo = repo.name
+                        return entry, err
+                }</span>
+        }
+        <span class="cov8" title="1">return types.DiffEntry{
+                FilePath:  filePath,
+                Timestamp: time.Now(),
+                Error:     "file not inside any known git repository",
+        }, nil</span>
+}
+
+// DirtyFiles returns DiffEntries for all dirty files across all repos.
+func (m *MultiDiffer) DirtyFiles() ([]types.DiffEntry, error) <span class="cov8" title="1">{
+        var all []types.DiffEntry
+        for _, repo := range m.repos </span><span class="cov8" title="1">{
+                entries, err := repo.differ.DirtyFiles()
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">for i := range entries </span><span class="cov8" title="1">{
+                        entries[i].Repo = repo.name
+                }</span>
+                <span class="cov8" title="1">all = append(all, entries...)</span>
+        }
+        <span class="cov8" title="1">return all, nil</span>
+}
+
+// RepoRoots returns the root paths of all discovered repos.
+func (m *MultiDiffer) RepoRoots() []string <span class="cov8" title="1">{
+        roots := make([]string, len(m.repos))
+        for i, r := range m.repos </span><span class="cov8" title="1">{
+                roots[i] = r.root
+        }</span>
+        <span class="cov8" title="1">return roots</span>
+}
+
+// RepoRootsWithNames returns a map of repo root paths to repo names.
+func (m *MultiDiffer) RepoRootsWithNames() map[string]string <span class="cov8" title="1">{
+        repos := make(map[string]string)
+        for _, r := range m.repos </span><span class="cov8" title="1">{
+                repos[r.root] = r.name
+        }</span>
+        <span class="cov8" title="1">return repos</span>
+}
+
+// DiscoverRepos walks a directory and returns a map of
+// repo root path -&gt; repo name for all directories containing a .git folder.
+// Once a repo is found, it does not descend further into it.
+func DiscoverRepos(parentDir string) (map[string]string, error) <span class="cov8" title="1">{
+        repos := make(map[string]string)
+
+        err := filepath.WalkDir(parentDir, func(path string, d fs.DirEntry, err error) error </span><span class="cov8" title="1">{
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+                <span class="cov8" title="1">if !d.IsDir() </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+                // Don't descend into .git directories themselves
+                <span class="cov8" title="1">if d.Name() == ".git" </span><span class="cov0" title="0">{
+                        return filepath.SkipDir
+                }</span>
+                // Check if this directory contains a .git folder (i.e. is a repo root)
+                <span class="cov8" title="1">gitDir := filepath.Join(path, ".git")
+                if _, statErr := os.Stat(gitDir); statErr == nil </span><span class="cov8" title="1">{
+                        repos[path] = filepath.Base(path)
+                        return filepath.SkipDir // don't descend into repos
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        })
+
+        <span class="cov8" title="1">return repos, err</span>
+}
+
+// GetBranch returns the current branch name for a git repo.
+func GetBranch(repoRoot string) string <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", repoRoot, "rev-parse", "--abbrev-ref", "HEAD")
+        var out bytes.Buffer
+        cmd.Stdout = &amp;out
+        cmd.Stderr = &amp;bytes.Buffer{}
+        if err := cmd.Run(); err != nil </span><span class="cov8" title="1">{
+                return ""
+        }</span>
+        <span class="cov8" title="1">return strings.TrimSpace(out.String())</span>
+}
+
+// IsGitRepo checks whether a directory is itself a git repository.
+func IsGitRepo(dir string) bool <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", dir, "rev-parse", "--git-dir")
+        cmd.Stdout = &amp;bytes.Buffer{}
+        cmd.Stderr = &amp;bytes.Buffer{}
+        return cmd.Run() == nil
+}</span>
+
+// IsGitIgnored uses git check-ignore to determine if a path is ignored
+// by any .gitignore in the repo hierarchy. Returns true if ignored.
+func IsGitIgnored(repoRoot, absPath string) bool <span class="cov8" title="1">{
+        cmd := exec.Command("git", "-C", repoRoot, "check-ignore", "-q", absPath)
+        cmd.Stdout = &amp;bytes.Buffer{}
+        cmd.Stderr = &amp;bytes.Buffer{}
+        return cmd.Run() == nil // exit 0 = ignored, exit 1 = not ignored
+}</span>
+
+// FindRepoRoot returns the git repo root for a given file path,
+// or empty string if the file is not inside any of the provided repo roots.
+func FindRepoRoot(filePath string, repoRoots []string) string <span class="cov8" title="1">{
+        // Check longest paths first (already sorted in MultiDiffer)
+        for _, root := range repoRoots </span><span class="cov8" title="1">{
+                if strings.HasPrefix(filePath, root+string(filepath.Separator)) </span><span class="cov8" title="1">{
+                        return root
+                }</span>
+        }
+        <span class="cov8" title="1">return ""</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
